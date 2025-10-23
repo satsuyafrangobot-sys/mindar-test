@@ -1,0 +1,77 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <!-- look-at component -->
+    <script src="https://cdn.jsdelivr.net/gh/ngokevin/aframe-look-at-component@master/dist/aframe-look-at-component.min.js"></script>
+  </head>
+  <body style="margin: 0; overflow: hidden;">
+    <a-scene 
+        mindar-image="imageTargetSrc: ./data/card.mind; uiScanning: false;" 
+        color-space="sRGB" 
+        renderer="alpha: true; colorManagement: true, physicallyCorrectLights" 
+        vr-mode-ui="enabled: false" 
+        device-orientation-permission-ui="enabled: false">
+      <a-assets>
+        <img id="card" src="./data/card.png" />
+        <video 
+            id="avatarVideo" 
+            src="./videos/video.webm"
+            loop="true" 
+            playsinline 
+            webkit-playsinline 
+            crossorigin="anonymous">
+        </video>
+      </a-assets>
+
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      
+      <a-entity mindar-image-target="targetIndex: 0" id="target">
+        <!-- Video Plane -->
+        <a-plane 
+            id="videoPlane"
+            position="0 0 0.1" 
+            rotation="0 0 0" 
+            width="1" 
+            height="0.552" 
+            material="shader: flat; src: #avatarVideo; transparent: true; alphaTest: 0.5"
+            look-at="[camera]">
+        </a-plane>
+      </a-entity>
+
+      <script>
+        // Custom component: keeps object facing camera around Y-axis only
+        AFRAME.registerComponent("billboard-y", {
+          tick: function () {
+            const camera = this.el.sceneEl.camera;
+            if (!camera) return;
+
+            const object3D = this.el.object3D;
+            const camPos = new THREE.Vector3();
+            camera.getWorldPosition(camPos);
+
+            const objPos = new THREE.Vector3();
+            object3D.getWorldPosition(objPos);
+
+            const target = camPos.clone().sub(objPos);
+            target.y = 0; // lock vertical rotation
+            object3D.lookAt(objPos.clone().add(target));
+          },
+        });
+
+        const video = document.querySelector("#avatarVideo");
+        const target = document.querySelector("#target");
+
+        target.addEventListener("targetFound", () => {
+          video.play();
+        });
+
+        target.addEventListener("targetLost", () => {
+          video.pause();
+          video.currentTime = 0; // optional: reset video
+        });
+      </script>
+    </a-scene>
+  </body>
+</html>
