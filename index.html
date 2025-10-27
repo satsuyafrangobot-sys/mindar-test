@@ -17,7 +17,7 @@
         <img id="card" src="./data/card.png" />
         <video 
             id="avatarVideo" 
-            src="./videos/video.webm"
+            src="./videos/video2.webm"
             loop="true" 
             playsinline 
             webkit-playsinline 
@@ -27,20 +27,77 @@
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
       
-      <a-entity mindar-image-target="targetIndex: 0" id="target">
+      <a-entity mindar-image-target="targetIndex: 0" id="target" inertia-smooth="smoothFactor: 0.15; predictionFactor: 0.9; yOnly: true">
         <!-- Video Plane -->
         <a-plane 
             id="videoPlane"
             position="0 0 0.1" 
             rotation="0 0 0" 
-            width="5" 
-            height="2.76" 
+            width="2.5" 
+            height="1.38" 
             material="shader: flat; src: #avatarVideo; transparent: true; alphaTest: 0.5"
             billboard>
         </a-plane>
       </a-entity>
 
       <script>
+        // ======= Inertia (Kalman-like) smoothing filter =======
+        AFRAME.registerComponent("inertia-smooth", {
+          schema: {
+            smoothFactor: { default: 0.15 },
+            predictionFactor: { default: 0.9 },
+            yOnly: { default: true },
+          },
+          init() {
+            this.prevPos = new THREE.Vector3();
+            this.prevVel = new THREE.Vector3();
+            this.prevQuat = new THREE.Quaternion();
+            this.prevAngVel = new THREE.Vector3();
+            this.tmpPos = new THREE.Vector3();
+            this.tmpQuat = new THREE.Quaternion();
+            this.tmpEuler = new THREE.Euler();
+            this.initialized = false;
+          },
+          tick(time, delta) {
+            const parent = this.el.parentEl && this.el.parentEl.object3D;
+            if (!parent) return;
+            const obj = this.el.object3D;
+            const dt = delta / 1000;
+            if (dt <= 0) return;
+
+            // Get parent's world transform
+            parent.getWorldPosition(this.tmpPos);
+            parent.getWorldQuaternion(this.tmpQuat);
+
+            // Y-only rotation
+            if (this.data.yOnly) {
+              this.tmpEuler.setFromQuaternion(this.tmpQuat, "YXZ");
+              this.tmpEuler.x = 0;
+              this.tmpEuler.z = 0;
+              this.tmpQuat.setFromEuler(this.tmpEuler);
+            }
+
+            if (!this.initialized) {
+              this.prevPos.copy(this.tmpPos);
+              this.prevQuat.copy(this.tmpQuat);
+              this.initialized = true;
+              return;
+            }
+
+            // ---- Position smoothing with velocity prediction ----
+            const vel = this.tmpPos.clone().sub(this.prevPos).divideScalar(dt);
+            this.prevVel.lerp(vel, this.data.smoothFactor);
+            this.prevPos.lerp(this.tmpPos, this.data.smoothFactor);
+            const predictedPos = this.prevPos.clone().addScaledVector(this.prevVel, this.data.predictionFactor * dt);
+            obj.position.copy(predictedPos);
+
+            // ---- Rotation smoothing ----
+            this.prevQuat.slerp(this.tmpQuat, this.data.smoothFactor);
+            obj.quaternion.copy(this.prevQuat);
+          },
+        });
+
+        // ======= Billboard: keep plane facing camera =======
         // Custom component: keeps object facing camera around Y-axis only
         AFRAME.registerComponent("billboard", {
             tick: function () {
@@ -52,6 +109,30 @@
             },
         });
 
+        //Don't rotate at Y axis
+        /*
+        AFRAME.registerComponent("billboard", {
+          tick: function () {
+            const camera = document.querySelector("[camera]").object3D;
+            const obj = this.el.object3D;
+
+            // Get world positions
+            const camPos = new THREE.Vector3();
+            const objPos = new THREE.Vector3();
+            camera.getWorldPosition(camPos);
+            obj.getWorldPosition(objPos);
+
+            // Compute direction only in XZ plane
+            const targetDir = new THREE.Vector3(camPos.x - objPos.x, 0, camPos.z - objPos.z).normalize();
+
+            // Compute rotation to face camera on Y-axis
+            const angle = Math.atan2(targetDir.x, targetDir.z);
+            obj.rotation.set(0, angle, 0);
+          }
+        });
+        */
+
+        // ======= Video handling =======
         const video = document.querySelector("#avatarVideo");
         const target = document.querySelector("#target");
 
