@@ -8,7 +8,11 @@
   </head>
   <body style="margin: 0; overflow: hidden;">
     <a-scene 
-        mindar-image="imageTargetSrc: ./data/card.mind; uiScanning: false;" 
+        mindar-image="imageTargetSrc: ./data/card.mind; 
+          uiScanning: false;
+          filterMinCF: 0.0005; 
+          filterBeta: 0.01; 
+          warmupTolerance: 3;"
         color-space="sRGB" 
         renderer="alpha: true; colorManagement: true, physicallyCorrectLights" 
         vr-mode-ui="enabled: false" 
@@ -27,7 +31,7 @@
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
       
-      <a-entity mindar-image-target="targetIndex: 0" id="target" inertia-smooth="smoothFactor: 0.15; predictionFactor: 0.9; yOnly: true">
+      <a-entity mindar-image-target="targetIndex: 0" id="target" inertia-smooth="smoothFactor: 0.08; predictionFactor: 0.7; yOnly: true">
         <!-- Video Plane -->
         <a-plane 
             id="videoPlane"
